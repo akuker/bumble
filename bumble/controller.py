@@ -130,6 +130,10 @@ class Controller:
             '0000000060000000'
         )  # BR/EDR Not Supported, LE Supported (Controller)
         self.manufacturer_name = 0xFFFF
+        self.br_edr_acl_data_packet_length = 5 ##TODO: Made-up numbers for now
+        self.br_edr_synchronous_data_packet_length = 5 ##TODO: Made-up numbers for now
+        self.br_edr_total_num_acl_data_packets = 1 ##TODO: Made-up numbers for now
+        self.br_edr_total_num_synchronous_data_packets = 1 ##TODO: Made-up numbers for now
         self.hc_le_data_packet_length = 27
         self.hc_total_num_le_data_packets = 64
         self.event_mask = 0
@@ -253,6 +257,7 @@ class Controller:
             logger.warning(f'!!! unknown packet type {packet.hci_packet_type}')
 
     def on_hci_command_packet(self, command):
+        logger.debug(f'Received HCI command {command.name.lower()}')
         handler_name = f'on_{command.name.lower()}'
         handler = getattr(self, handler_name, self.on_hci_command)
         result = handler(command)
@@ -269,6 +274,7 @@ class Controller:
         logger.warning('!!! unexpected event packet')
 
     def on_hci_acl_data_packet(self, packet):
+        logger.debug(f'on_hci_acl_data_packet')
         # Look for the connection to which this data belongs
         connection = self.find_connection_by_handle(packet.connection_handle)
         if connection is None:
@@ -890,6 +896,32 @@ class Controller:
         See Bluetooth spec Vol 2, Part E - 7.4.3 Read Local Supported Features Command
         '''
         return bytes([HCI_SUCCESS]) + self.lmp_features
+
+    def on_hci_read_local_extended_features_command(self, command):
+        '''
+        See Bluetooth spec Vol 2, Part E - 7.4.5 Read Buffer Size Command
+        '''
+        # logger.error(f'read_local_extended_features_command {command}')
+        # TODO: For now, just always return page 1....
+        return struct.pack(
+            '<BBB',
+            HCI_SUCCESS,
+            1, #Pge Number
+            1, #Max Page Number
+        ) + self.lmp_features
+
+    def on_hci_read_buffer_size_command(self, _command):
+        '''
+        See Bluetooth spec Vol 2, Part E - 7.4.5 Read Buffer Size Command
+        '''
+        return struct.pack(
+            '<BHBHH',
+            HCI_SUCCESS,
+            self.br_edr_acl_data_packet_length,
+            self.br_edr_synchronous_data_packet_length,
+            self.br_edr_total_num_acl_data_packets,
+            self.br_edr_total_num_synchronous_data_packets
+        )
 
     def on_hci_read_bd_addr_command(self, _command):
         '''
